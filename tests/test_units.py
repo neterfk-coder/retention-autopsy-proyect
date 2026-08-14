@@ -152,6 +152,34 @@ def test_diagnose_finds_a_planted_cliff():
     assert top.hazard > 0.2
 
 
+def test_no_edit_data_does_not_invent_a_cause():
+    """`scan` alone leaves cuts and words empty until `edit` runs on the file.
+
+    Every cause rule keyed on cut_rate or speech_rate used to fire on every
+    cliff in that state, because the placeholder value (0.0) and the context
+    computed from other placeholder rows (also 0.0) always agreed. That reads
+    as a confident diagnosis ("cutting has slowed to 0.0 cuts per 10s")
+    manufactured from data that was never collected.
+    """
+    values = [1.0]
+    for i in range(1, 101):
+        drop = 0.35 if i == 60 else 0.004
+        values.append(values[-1] * (1 - drop))
+    tl = EditTimeline(video_id="x", duration=600.0)  # no cuts, no words
+    video = Video(
+        meta=VideoMeta("x", "t", 600.0, views=10_000),
+        retention=_curve(values, duration=600.0),
+        timeline=tl,
+    )
+    findings = diagnose(video)
+    assert findings
+    causes = " ".join(findings[0].causes)
+    assert "cuts per 10s" not in causes
+    assert "words/s" not in causes
+    assert "held for" not in causes
+    assert "autopsy edit" in causes
+
+
 def test_flat_retention_yields_no_findings():
     tl = EditTimeline(video_id="x", duration=600.0, cuts=[float(c) for c in range(0, 600, 4)])
     video = Video(

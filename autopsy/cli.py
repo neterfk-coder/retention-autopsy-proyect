@@ -146,6 +146,19 @@ def analyse(videos: list[Video], channel_title: str, source: str) -> tuple[Repor
     if not costs:
         warnings.append("No sponsor reads detected, so the sponsor section is omitted.")
 
+    # `scan` only pulls the retention curve; the edit side -- cuts, words,
+    # loudness -- comes from `autopsy edit` against the actual video file.
+    # Without it every cause reads identically ("0.0 cuts per 10s", "0.0
+    # words/s") because there is no edit signal to diagnose yet, which looks
+    # like a broken tool rather than an unfinished pipeline unless it says so.
+    no_edit = sum(1 for v in videos if not v.timeline.cuts and not v.timeline.words)
+    if no_edit:
+        warnings.append(
+            f"{no_edit} of {len(videos)} videos have no edit data yet -- causes will read "
+            "identically until you run 'autopsy edit --video-id <id> --file <video>' on "
+            "them. Retention findings below are real; the causes attributed to them are not."
+        )
+
     report = Report(
         channel_title=channel_title,
         videos=videos,
@@ -334,7 +347,25 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _make_stdio_unicode_safe() -> None:
+    """Stop real video titles from crashing the console.
+
+    A real channel's titles are UTF-8 and routinely carry emoji; Windows'
+    legacy console encoding (cp1252) cannot represent them and raises
+    UnicodeEncodeError on print(), which previously took the whole `scan` down
+    mid-run -- after it had already spent quota. Fixture titles are plain
+    ASCII, so `demo` never exercised this.
+    """
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            try:
+                stream.reconfigure(errors="replace")
+            except (ValueError, OSError):  # pragma: no cover - unusual streams
+                pass
+
+
 def main(argv: list[str] | None = None) -> int:
+    _make_stdio_unicode_safe()
     args = build_parser().parse_args(argv)
     try:
         return args.func(args)
