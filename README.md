@@ -159,13 +159,18 @@ noise, and the tests check the pipeline recovers those figures *from the curves 
 
 ```
 $ python -m pytest tests/ -q
-31 passed
+45 passed
 ```
 
 The strict one is `test_isolated_long_shot_effect_is_recovered`: a channel where shot
 length is the only thing driving churn, and the planted 2.2x must land inside the estimated
 confidence interval. Its companion, `test_no_effect_is_not_invented`, feeds the search pure
 noise and asserts it stays insignificant.
+
+`tests/test_youtube.py` covers the one path the fixture cannot reach — the live channel —
+by replaying the response shapes a real catalogue produces against a fake API: a livestream
+with no duration, a video still processing, a hidden view count, a bucket YouTube declines
+to report, a page of uploads that were all deleted. No network, no credentials.
 
 Two bugs found this way during the build, both of which would have shipped silently:
 
