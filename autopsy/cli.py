@@ -225,6 +225,24 @@ def cmd_scan(args: argparse.Namespace) -> int:
     metas = client.video_meta(ids)
     print(f"{len(metas)} videos, fetching retention")
 
+    # `edit` is real, per-video effort -- running ffmpeg and a transcript
+    # against the actual file. A re-scan pulls a fresh retention curve for
+    # every video regardless, but it has no reason to throw that work away for
+    # videos it already had; a best-effort read of the current cache is what
+    # carries it forward. A missing, empty or foreign cache just means there
+    # is nothing to carry, not a reason to fail the scan.
+    previous_timelines: dict[str, EditTimeline] = {}
+    cache_path = Path(args.cache)
+    if cache_path.exists():
+        try:
+            for video in load_channel(cache_path)[0]:
+                if video.timeline.cuts or video.timeline.words:
+                    previous_timelines[video.video_id] = video.timeline
+        except Exception:
+            pass
+    if previous_timelines:
+        print(f"carrying forward edit data for {len(previous_timelines)} video(s)")
+
     videos: list[Video] = []
     skipped = 0
     for meta in metas:
@@ -235,9 +253,11 @@ def cmd_scan(args: argparse.Namespace) -> int:
         if curve is None:
             skipped += 1
             continue
-        timeline = EditTimeline(video_id=meta.video_id, duration=meta.duration)
+        timeline = previous_timelines.get(meta.video_id) or EditTimeline(
+            video_id=meta.video_id, duration=meta.duration
+        )
         subtitle = Path(args.subtitles or "") / f"{meta.video_id}.srt" if args.subtitles else None
-        if subtitle and subtitle.exists():
+        if subtitle and subtitle.exists() and not timeline.words:
             from .extract.transcript import parse_subtitles
 
             timeline.words = parse_subtitles(subtitle)
@@ -289,6 +309,18 @@ def cmd_edit(args: argparse.Namespace) -> int:
 
         print("  transcribing (this is the slow part)")
         words = transcribe_whisper(args.file, model=args.whisper)
+        # Whisper can legitimately return nothing -- a music-only track, a
+        # language it is unsure about, audio too quiet to clear its internal
+        # confidence threshold -- and silently proceeding made that look
+        # identical to a successful run with an unusually quiet video. Speech-
+        # rate features for this video will correctly stay off (see
+        # findings.py/patterns.py has_words gating); this just says why.
+        if not words:
+            print(
+                "  whisper found no speech -- speech-rate features will be "
+                "unavailable for this video (a music-only track, quiet audio, "
+                "or a language it could not identify can all cause this)"
+            )
 
     video.timeline = EditTimeline(
         video_id=video.video_id,

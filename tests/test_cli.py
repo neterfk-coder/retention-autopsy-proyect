@@ -8,8 +8,9 @@ from __future__ import annotations
 
 import pytest
 
-from autopsy.cli import build_parser, cmd_edit, load_channel
-from autopsy.models import Video, VideoMeta
+from autopsy.cli import build_parser, cmd_edit, cmd_scan, load_channel, save_channel
+from autopsy.models import EditTimeline, RetentionCurve, RetentionPoint, Video, VideoMeta, Word
+from autopsy.quota import QuotaBudget
 from autopsy.sources.synthetic import make_channel
 
 
@@ -28,8 +29,6 @@ def test_edit_rejects_a_missing_video_file(tmp_path, capsys):
     read as a complete, plausible result -- '0 cuts, silent audio' -- with
     nothing telling you the file was never actually opened.
     """
-    from autopsy.cli import save_channel
-
     cache = tmp_path / "channel.json"
     save_channel(make_channel(n_videos=1, seed=1), cache, "t", "synthetic")
     args = build_parser().parse_args(
@@ -45,3 +44,93 @@ def test_edit_rejects_a_missing_video_file(tmp_path, capsys):
     )
     assert cmd_edit(args) == 1
     assert "does not exist" in capsys.readouterr().err
+
+
+def test_whisper_finding_no_speech_is_reported_not_silent(tmp_path, capsys, monkeypatch):
+    """Whisper can legitimately transcribe zero words -- observed for real on a
+
+    music-heavy video with low language-detection confidence. Printing
+    "transcribing (this is the slow part)" and then just continuing made a
+    real failure to find speech indistinguishable from success.
+    """
+    cache = tmp_path / "channel.json"
+    save_channel(make_channel(n_videos=1, seed=1), cache, "t", "synthetic")
+    video_file = tmp_path / "video.mp4"
+    video_file.write_bytes(b"not a real video, just needs to exist")
+
+    monkeypatch.setattr(
+        "autopsy.extract.video.probe_duration", lambda path: 600.0
+    )
+    monkeypatch.setattr("autopsy.extract.video.detect_cuts", lambda path: [])
+    monkeypatch.setattr(
+        "autopsy.extract.video.audio_series", lambda path, duration, sample_hz=2.0: ([], [])
+    )
+    monkeypatch.setattr("autopsy.extract.transcript.transcribe_whisper", lambda path, model: [])
+
+    args = build_parser().parse_args(
+        [
+            "edit",
+            "--video-id",
+            "SYN000",
+            "--file",
+            str(video_file),
+            "--whisper",
+            "base",
+            "--cache",
+            str(cache),
+        ]
+    )
+    assert cmd_edit(args) == 0
+    assert "no speech" in capsys.readouterr().out
+
+
+class _FakeYouTubeClient:
+    """Just enough of YouTubeClient's surface for cmd_scan to run."""
+
+    def __init__(self, _credentials, budget=None):
+        self.budget = budget or QuotaBudget()
+
+    def my_channel(self):
+        return {"snippet": {"title": "t"}}
+
+    def list_uploads(self, max_videos, channel=None):
+        return ["v1"]
+
+    def video_meta(self, video_ids):
+        return [VideoMeta("v1", "t", 600.0, views=100)]
+
+    def retention(self, video_id, duration, start_date, end_date):
+        points = [RetentionPoint(ratio=i / 10, watch_ratio=1.0 - i * 0.01) for i in range(11)]
+        return RetentionCurve(video_id=video_id, duration=duration, points=points)
+
+
+def test_rescan_carries_forward_existing_edit_data(tmp_path, monkeypatch, capsys):
+    """Re-running 'scan' used to wipe every video back to an empty timeline.
+
+    'edit' is real per-video work -- ffmpeg plus a transcript against the
+    actual file. A creator who has edited twenty videos and reruns scan to
+    pick up a new upload should not silently lose that work.
+    """
+    monkeypatch.setattr("autopsy.sources.youtube.authenticate", lambda secrets: object())
+    monkeypatch.setattr("autopsy.sources.youtube.YouTubeClient", _FakeYouTubeClient)
+
+    cache = tmp_path / "channel.json"
+    edited_timeline = EditTimeline(
+        video_id="v1", duration=600.0, cuts=[10.0, 20.0], words=[Word("hi", 0.0, 0.5)]
+    )
+    save_channel(
+        [Video(meta=VideoMeta("v1", "t", 600.0, views=100),
+               retention=RetentionCurve("v1", 600.0, []),
+               timeline=edited_timeline)],
+        cache, "t", "youtube",
+    )
+
+    args = build_parser().parse_args(
+        ["scan", "--secrets", "x.json", "--max-videos", "10", "--cache", str(cache)]
+    )
+    assert cmd_scan(args) == 0
+
+    videos, _, _ = load_channel(cache)
+    assert videos[0].timeline.cuts == [10.0, 20.0]
+    assert len(videos[0].timeline.words) == 1
+    assert "carrying forward edit data for 1 video" in capsys.readouterr().out
