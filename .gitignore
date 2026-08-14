@@ -17,3 +17,6 @@ out/
 *.mov
 *.srt
 *.vtt
+
+# the checked-in fixture is not someone's footage
+!examples/*.srt

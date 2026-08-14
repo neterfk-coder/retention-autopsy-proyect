@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import datetime as dt
 import html
+import math
 from pathlib import Path
 
 from ..models import Finding, Pattern, Report, SponsorCost, Video, timecode
@@ -116,6 +117,18 @@ footer{margin-top:72px;padding-top:20px;border-top:1px solid var(--rule);
 
 def esc(text: str) -> str:
     return html.escape(str(text), quote=True)
+
+
+def _ci(low: float, high: float) -> str:
+    """A 95% interval, printed honestly when it is not bounded.
+
+    `ratio_bootstrap_ci` deliberately returns an unbounded interval on groups
+    too small to resample rather than a fake 1.0. Rendering that as "0.00-inf"
+    throws the maths back at the reader; saying so in words does not.
+    """
+    if not math.isfinite(low) or not math.isfinite(high):
+        return "95% CI too few samples to bound"
+    return f"95% CI {low:.2f}&ndash;{high:.2f}"
 
 
 def _blend(low: str, high: str, weight: float) -> str:
@@ -287,7 +300,7 @@ def _patterns_section(patterns: list[Pattern]) -> str:
             f'<p class="note">{esc(pattern.detail)}</p>'
             f'<div>{tag}'
             f'<span class="mono" style="font-size:12px;color:var(--muted)">'
-            f'95% CI {pattern.ci_low:.2f}-{pattern.ci_high:.2f} &middot; '
+            f'{_ci(pattern.ci_low, pattern.ci_high)} &middot; '
             f'p={pattern.p_value:.4f} &middot; n={pattern.n:,}</span></div>'
             f'{_bars(pattern)}'
             f'</div></div></div>'
@@ -337,7 +350,7 @@ def _sponsor_section(costs: list[SponsorCost], rule: dict | None, summary: dict)
             f'<div><span class="tag {strength}">'
             f'{"significant" if rule["significant"] else "provisional"}</span>'
             f'<span class="mono" style="font-size:12px;color:var(--muted)">'
-            f'95% CI {rule["ci_low"]:.2f}-{rule["ci_high"]:.2f} &middot; '
+            f'{_ci(rule["ci_low"], rule["ci_high"])} &middot; '
             f'p={rule["p_value"]:.4f}</span></div>'
             f'</div></div></div>'
         )
@@ -445,9 +458,6 @@ def render_report(
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Retention autopsy &mdash; {esc(report.channel_title)}</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>{CSS}</style></head>
 <body><div class="wrap">
 <header class="masthead">

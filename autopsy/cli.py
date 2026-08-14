@@ -115,6 +115,11 @@ def save_channel(videos: list[Video], path: Path, channel_title: str, source: st
 
 
 def load_channel(path: Path) -> tuple[list[Video], str, str]:
+    if not path.exists():
+        raise FileNotFoundError(
+            f"no cache at {path}. Run 'python -m autopsy demo' for fixture data, "
+            f"or 'python -m autopsy scan --secrets client_secrets.json' for a real channel."
+        )
     data = json.loads(path.read_text(encoding="utf-8"))
     videos = [video_from_dict(v) for v in data["videos"]]
     return videos, data.get("channel_title", "Unknown channel"), data.get("source", "youtube")
@@ -203,7 +208,7 @@ def cmd_scan(args: argparse.Namespace) -> int:
     title = channel["snippet"]["title"]
     print(f"channel: {title}")
 
-    ids = client.list_uploads(args.max_videos)
+    ids = client.list_uploads(args.max_videos, channel=channel)
     metas = client.video_meta(ids)
     print(f"{len(metas)} videos, fetching retention")
 
@@ -249,7 +254,10 @@ def cmd_edit(args: argparse.Namespace) -> int:
     print(f"analysing {args.file} ({duration:.0f}s)")
 
     cuts = detect_cuts(args.file)
-    loudness, silence = audio_series(args.file, duration)
+    # the grid the series are sampled on has to be the grid the timeline reads
+    # them back on, so it is passed explicitly rather than defaulted twice
+    sample_hz = 2.0
+    loudness, silence = audio_series(args.file, duration, sample_hz=sample_hz)
     print(f"  {len(cuts)} cuts, {len(loudness)} audio samples")
 
     words = parse_subtitles(args.subtitles) if args.subtitles else []
@@ -267,6 +275,7 @@ def cmd_edit(args: argparse.Namespace) -> int:
         segments=detect_segments(words, duration) if words else [],
         loudness=loudness,
         silence=silence,
+        sample_hz=sample_hz,
     )
     save_channel(videos, Path(args.cache), title, source)
     print(f"  updated {args.cache}")

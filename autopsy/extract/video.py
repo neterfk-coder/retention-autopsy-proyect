@@ -37,15 +37,26 @@ def _require_ffmpeg() -> None:
 
 
 def probe_duration(path: str | Path) -> float:
+    """Container duration in seconds, or 0.0 if the file does not report one.
+
+    Returning 0.0 rather than raising is what lets callers fall back to the
+    duration YouTube already gave them. A missing ffmpeg still raises, because
+    that is actionable and the rest of the command cannot run without it.
+    """
     _require_ffmpeg()
     result = subprocess.run(
         [
             "ffprobe", "-v", "error", "-show_entries", "format=duration",
             "-of", "json", str(path),
         ],
-        capture_output=True, text=True, check=True,
+        capture_output=True, text=True,
     )
-    return float(json.loads(result.stdout)["format"]["duration"])
+    if result.returncode != 0:
+        return 0.0
+    try:
+        return float(json.loads(result.stdout)["format"]["duration"])
+    except (ValueError, KeyError, json.JSONDecodeError):
+        return 0.0
 
 
 def detect_cuts_ffmpeg(path: str | Path, threshold: float = SCENE_THRESHOLD) -> list[float]:

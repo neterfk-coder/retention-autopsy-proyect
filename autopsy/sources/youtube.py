@@ -88,8 +88,11 @@ class YouTubeClient:
             raise YouTubeUnavailable("This account has no channel.")
         return items[0]
 
-    def list_uploads(self, max_videos: int = 50) -> list[str]:
-        channel = self.my_channel()
+    def list_uploads(self, max_videos: int = 50, channel: dict | None = None) -> list[str]:
+        # Callers that already fetched the channel pass it back in, so a scan
+        # spends one channels.list unit rather than two and matches the estimate
+        # printed before it started.
+        channel = channel or self.my_channel()
         playlist = channel["contentDetails"]["relatedPlaylists"]["uploads"]
         ids: list[str] = []
         page_token = None

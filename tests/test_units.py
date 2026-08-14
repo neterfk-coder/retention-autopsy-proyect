@@ -84,6 +84,25 @@ def test_interpolation_between_buckets():
 # -- the join ---------------------------------------------------------
 
 
+def test_words_assigned_after_construction_still_measure_speech():
+    """The scan path fills `words` in after building the timeline.
+
+    Deriving the bisect index only in __post_init__ meant every video scanned
+    from a real channel reported a speech rate of exactly zero -- silently, and
+    only on the path that never runs against fixture data.
+    """
+    tl = EditTimeline(video_id="x", duration=100.0)
+    tl.words = [Word("w", float(i), float(i) + 0.4) for i in range(100)]
+    assert tl.speech_rate(50.0) > 0.5
+
+
+def test_cuts_assigned_after_construction_are_still_ordered():
+    tl = EditTimeline(video_id="x", duration=100.0)
+    tl.cuts = [50.0, 10.0, 250.0, -4.0]  # unsorted, and two outside the runtime
+    assert tl.cuts == [10.0, 50.0]
+    assert tl.shot_age(60.0) == pytest.approx(10.0)
+
+
 def test_build_rows_skips_the_opening_seconds():
     tl = EditTimeline(video_id="x", duration=100.0, cuts=[10.0])
     video = Video(
@@ -258,8 +277,26 @@ def test_quota_blocks_before_overspending():
 
 def test_scan_estimate_pages_by_fifty():
     budget = QuotaBudget()
-    assert budget.estimate_scan(50) == 2
-    assert budget.estimate_scan(51) == 4
+    # one channels.list to find the uploads playlist, then a playlistItems page
+    # and a videos.list batch per 50 videos
+    assert budget.estimate_scan(50) == 3
+    assert budget.estimate_scan(51) == 5
+
+
+def test_scan_estimate_matches_what_a_scan_actually_spends():
+    """The estimate is printed before any quota is spent, so it has to be true.
+
+    Tying it to the real call sequence is what stops the two drifting: the
+    estimate previously omitted channels.list and under-reported by half.
+    """
+    for n_videos in (1, 50, 51, 120):
+        pages = -(-n_videos // 50)
+        spent = QuotaBudget()
+        spent.spend("channels.list")               # my_channel
+        spent.spend("playlistItems.list", pages)   # list_uploads
+        spent.spend("videos.list", pages)          # video_meta
+        spent.spend("reports.query", n_videos)     # retention, free
+        assert QuotaBudget().estimate_scan(n_videos) == spent.used
 
 
 def test_analytics_queries_cost_no_data_api_units():

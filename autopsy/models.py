@@ -86,9 +86,21 @@ class EditTimeline:
     sample_hz: float = 2.0
     has_music_bed: bool = False
 
-    def __post_init__(self) -> None:
-        self.cuts = sorted(float(c) for c in self.cuts if 0.0 <= c <= self.duration)
-        self._word_starts = [w.start for w in self.words]
+    def __setattr__(self, name: str, value) -> None:
+        """Keep derived state in step with the fields it is derived from.
+
+        `cuts` and `words` are assigned *after* construction in the scan and
+        edit paths, so normalising them once in __post_init__ was a silent bug:
+        a reassigned `words` left the bisect index empty and every scanned video
+        reported a speech rate of exactly zero. Normalising on assignment means
+        it cannot drift out of step again.
+        """
+        duration = getattr(self, "duration", None)
+        if name == "cuts" and duration is not None:
+            value = sorted(float(c) for c in value if 0.0 <= float(c) <= duration)
+        super().__setattr__(name, value)
+        if name == "words":
+            super().__setattr__("_word_starts", [w.start for w in value])
 
     # -- shot geometry -------------------------------------------------
 

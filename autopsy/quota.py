@@ -67,11 +67,16 @@ class QuotaBudget:
     def estimate_scan(self, n_videos: int) -> int:
         """Units a full read-only scan of n videos will cost.
 
-        playlistItems.list pages 50 at a time, videos.list batches 50 ids per
-        call, and the Analytics retention report is free of Data API units.
+        One channels.list to find the uploads playlist, then playlistItems.list
+        pages 50 at a time and videos.list batches 50 ids per call. The
+        Analytics retention report is free of Data API units.
         """
-        pages = -(-n_videos // 50)
-        return pages * self.cost("playlistItems.list") + pages * self.cost("videos.list")
+        pages = max(1, -(-n_videos // 50))
+        return (
+            self.cost("channels.list")
+            + pages * self.cost("playlistItems.list")
+            + pages * self.cost("videos.list")
+        )
 
     def summary(self) -> str:
         lines = [f"quota: {self.used}/{self.limit} units used ({self.remaining} left)"]

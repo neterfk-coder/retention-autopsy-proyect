@@ -159,7 +159,7 @@ noise, and the tests check the pipeline recovers those figures *from the curves 
 
 ```
 $ python -m pytest tests/ -q
-25 passed
+31 passed
 ```
 
 The strict one is `test_isolated_long_shot_effect_is_recovered`: a channel where shot
@@ -198,10 +198,10 @@ Worth knowing before you trust a number:
 ## Quota
 
 A default Data API project gets 10,000 units per day. Reads are cheap — a 40-video scan
-costs 4 units, because `playlistItems.list` and `videos.list` both page 50 at a time and
-retention comes from the Analytics API, which is metered separately and costs no Data API
-units at all. `autopsy scan` prints its estimate before spending anything and refuses
-calls that would overrun the budget.
+costs 3 units: one `channels.list` to find the uploads playlist, then `playlistItems.list`
+and `videos.list`, which both page 50 at a time. Retention comes from the Analytics API,
+which is metered separately and costs no Data API units at all. `autopsy scan` prints its
+estimate before spending anything and refuses calls that would overrun the budget.
 
 Writes are the expensive ones at 50 units each. This tool never writes.
 
