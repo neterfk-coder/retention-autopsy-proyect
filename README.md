@@ -304,11 +304,7 @@ sudo apt install ffmpeg      # Debian / Ubuntu
 
 ---
 
-## Team
 
-| Name | Built |
-|---|---|
-| *your name* | *which parts* |
 
 ---
 
