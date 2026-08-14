@@ -29,19 +29,27 @@ MIN_GROUP = 40
 
 
 def learn_patterns(videos: list[Video], n_bins: int = 4) -> list[Pattern]:
-    rows = body_rows(build_frame(videos))
-    if len(rows) < MIN_ROWS:
+    all_rows = body_rows(build_frame(videos))
+    if len(all_rows) < MIN_ROWS:
         return []
 
-    hazard = column(rows, "hazard")
     patterns: list[Pattern] = []
 
     for feature in NUMERIC_FEATURES:
+        spec = FEATURE_SPECS[feature]
+        # Only videos that actually have this series -- scanned-but-not-yet-
+        # edited videos default cuts and words to empty, and their rows would
+        # otherwise report "no cutting" or "no speech" as if it were observed
+        # rather than never collected.
+        rows = [r for r in all_rows if r[spec["requires"]]]
+        if len(rows) < MIN_ROWS:
+            continue
+
+        hazard = column(rows, "hazard")
         values = column(rows, feature)
         if float(np.std(values)) < 1e-9:
             continue
 
-        spec = FEATURE_SPECS[feature]
         edges = list(np.quantile(values, np.linspace(0, 1, n_bins + 1)))
         edges = sorted(set(round(e, 6) for e in edges))
         if len(edges) < 3:

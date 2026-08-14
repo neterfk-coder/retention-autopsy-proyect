@@ -4,8 +4,11 @@ from __future__ import annotations
 
 import pytest
 
+import numpy as np
+
 from autopsy.analysis.align import build_rows
 from autopsy.analysis.findings import diagnose
+from autopsy.analysis.patterns import learn_patterns
 from autopsy.extract.transcript import detect_segments, locate_cues, parse_subtitles
 from autopsy.models import (
     EditTimeline,
@@ -178,6 +181,35 @@ def test_no_edit_data_does_not_invent_a_cause():
     assert "words/s" not in causes
     assert "held for" not in causes
     assert "autopsy edit" in causes
+
+
+def test_channel_patterns_ignore_videos_with_no_edit_data():
+    """A video scanned but never run through `edit` has no cuts and no words.
+
+    Its shot_age defaults to elapsed time (one shot spanning the whole video)
+    and cut_rate/speech_rate default to zero. Pooling those rows into a
+    channel-wide pattern let a majority of un-edited videos manufacture a
+    "long shots" or "slow speech" pattern out of data that was never
+    collected -- observed for real on a channel where only 1 of 8 videos had
+    been run through `edit`.
+    """
+    rng = np.random.default_rng(3)
+
+    def unedited_video(i: int) -> Video:
+        # hazard varies with nothing but noise -- there is no real effect to
+        # find, and no cut/word data to find it in
+        values = [1.0]
+        for _ in range(100):
+            values.append(values[-1] * (1 - abs(rng.normal(0.01, 0.004))))
+        return Video(
+            meta=VideoMeta(f"v{i}", "t", 600.0, views=1000),
+            retention=_curve(values, duration=600.0),
+            timeline=EditTimeline(video_id=f"v{i}", duration=600.0),  # no cuts, no words
+        )
+
+    videos = [unedited_video(i) for i in range(20)]
+    patterns = learn_patterns(videos)
+    assert not any(p.feature in ("shot_age", "cut_rate", "speech_rate") for p in patterns)
 
 
 def test_flat_retention_yields_no_findings():

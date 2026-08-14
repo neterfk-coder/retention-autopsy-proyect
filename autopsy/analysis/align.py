@@ -17,37 +17,46 @@ import numpy as np
 from ..models import Video
 
 #: Features extracted at each retention bucket. The `higher_is_worse` flag is
-#: only used to phrase findings in plain language.
+#: only used to phrase findings in plain language. `requires` names the row
+#: flag that must be true for a row to count toward this feature -- a video
+#: scanned but never run through `autopsy edit` has no cuts or words, and its
+#: rows would otherwise pool in as if "no cutting" or "no speech" were a real
+#: editorial observation rather than data that was never collected.
 FEATURE_SPECS: dict[str, dict] = {
     "shot_age": {
         "label": "seconds since the last cut",
         "unit": "s",
         "higher_is_worse": True,
         "describe": "shots held past {edge:.0f}s without a cut",
+        "requires": "has_cuts",
     },
     "cut_rate": {
         "label": "cuts per 10s",
         "unit": "/10s",
         "higher_is_worse": False,
         "describe": "stretches cut slower than {edge:.1f} times per 10s",
+        "requires": "has_cuts",
     },
     "speech_rate": {
         "label": "words per second",
         "unit": "w/s",
         "higher_is_worse": False,
         "describe": "passages spoken slower than {edge:.1f} words/s",
+        "requires": "has_words",
     },
     "silence": {
         "label": "share of the window with no speech",
         "unit": "",
         "higher_is_worse": True,
         "describe": "windows more than {edge:.0%} silent",
+        "requires": "has_audio",
     },
     "loudness_delta": {
         "label": "loudness change vs 8s earlier",
         "unit": "LU",
         "higher_is_worse": False,
         "describe": "moments where the mix drops more than {edge:.1f} LU",
+        "requires": "has_audio",
     },
 }
 
@@ -94,6 +103,15 @@ def build_rows(video: Video, skip_head: float = 15.0) -> list[dict]:
                 "in_intro": 1.0 if segment and segment.kind == "intro" else 0.0,
                 "in_cta": 1.0 if segment and segment.kind == "cta" else 0.0,
                 "segment": segment.kind if segment else "body",
+                # Whether this row's video actually has the underlying series,
+                # not just a placeholder default. `scan` alone leaves cuts and
+                # words empty until `edit` runs against the file; pooling those
+                # rows into a channel-wide feature would let a video with no
+                # cut data (shot_age growing to the full runtime by default)
+                # masquerade as evidence about shot length.
+                "has_cuts": bool(timeline.cuts),
+                "has_words": bool(timeline.words),
+                "has_audio": bool(timeline.loudness),
             }
         )
     return rows
