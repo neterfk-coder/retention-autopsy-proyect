@@ -1,0 +1,8 @@
+# Core. This is all that `demo`, the tests and the report need.
+numpy>=1.24
+
+# Optional extras -- uncomment what you need, or use:
+#   pip install -e '.[youtube]'   real channel scan
+#   pip install -e '.[video]'     PySceneDetect shot detection
+#   pip install -e '.[whisper]'   local transcription
+#   pip install -e '.[dev]'       pytest

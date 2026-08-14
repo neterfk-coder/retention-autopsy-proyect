@@ -1,0 +1,19 @@
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+
+# never commit these
+client_secrets.json
+token.json
+.env
+
+out/
+*.mp4
+*.mov
+*.srt
+*.vtt

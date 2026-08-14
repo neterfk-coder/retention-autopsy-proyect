@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "retention-autopsy"
+version = "0.1.0"
+description = "Join YouTube retention data to the actual edit, and find out what made people leave"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+dependencies = ["numpy>=1.24"]
+
+[project.optional-dependencies]
+youtube = [
+  "google-api-python-client>=2.100",
+  "google-auth-oauthlib>=1.1",
+  "google-auth>=2.23",
+]
+video = ["scenedetect[opencv]>=0.6.2"]
+whisper = ["faster-whisper>=1.0"]
+dev = ["pytest>=7.4"]
+
+[project.scripts]
+autopsy = "autopsy.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["autopsy*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+filterwarnings = ["ignore::DeprecationWarning"]
