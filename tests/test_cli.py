@@ -84,6 +84,33 @@ def test_whisper_finding_no_speech_is_reported_not_silent(tmp_path, capsys, monk
     assert "no speech" in capsys.readouterr().out
 
 
+def test_secrets_can_come_from_the_environment(monkeypatch):
+    """.env.example documented these three before any code read them.
+
+    Setting AUTOPSY_CLIENT_SECRETS and omitting --secrets failed with
+    "the following arguments are required", contradicting the file.
+    """
+    monkeypatch.setenv("AUTOPSY_CLIENT_SECRETS", "from-env.json")
+    monkeypatch.setenv("AUTOPSY_START_DATE", "2025-01-01")
+    monkeypatch.setenv("AUTOPSY_END_DATE", "2025-12-31")
+    args = build_parser().parse_args(["scan"])
+    assert args.secrets == "from-env.json"
+    assert args.start == "2025-01-01"
+    assert args.end == "2025-12-31"
+
+
+def test_explicit_secrets_flag_beats_the_environment(monkeypatch):
+    monkeypatch.setenv("AUTOPSY_CLIENT_SECRETS", "from-env.json")
+    args = build_parser().parse_args(["scan", "--secrets", "explicit.json"])
+    assert args.secrets == "explicit.json"
+
+
+def test_secrets_still_required_without_the_environment(monkeypatch):
+    monkeypatch.delenv("AUTOPSY_CLIENT_SECRETS", raising=False)
+    with pytest.raises(SystemExit):
+        build_parser().parse_args(["scan"])
+
+
 class _FakeYouTubeClient:
     """Just enough of YouTubeClient's surface for cmd_scan to run."""
 

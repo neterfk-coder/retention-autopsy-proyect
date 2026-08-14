@@ -41,6 +41,15 @@ el resultado delante de los jueces. Lo lento ya está cacheado.
 
 El guion minuto a minuto está en `docs/DEMO_SCRIPT.md`.
 
+**Antes de ensayar, leé tu propio reporte.** Los números del README salen del
+generador sintético. Si recitás esos mientras tu reporte real está en pantalla,
+es lo único que un juez va a cachar seguro. El guion usa `[corchetes]` justo por
+eso: rellenalos con lo que dice *tu* `out/report.html`.
+
+**Guardá una copia de `out/channel.json` fuera del repo.** Ahí vive cada `edit`
+que corriste — horas de ffmpeg y transcripción. `make clean` y cualquier
+`rm -rf out` se lo llevan puesto.
+
 ## Lo que tenés que poder defender
 
 **"¿Esto no es solo correlación?"** Sí, y está escrito en el README. Son efectos
@@ -51,8 +60,14 @@ observacionales sobre tu propio catálogo. Excluye los confounds medibles
 juez vuelve a correrlo, obtiene exactamente el mismo segmento. Y funciona sin red.
 
 **"¿Y si tengo 5 videos?"** Los hallazgos por video andan desde el primero. Los
-patrones del canal necesitan ~15, y el reporte lo dice en vez de inventar un
-número.
+patrones del canal necesitan bastante más, y el reporte lo dice en vez de
+inventar un número.
+
+**"Tus p-values no son significativos."** Correcto, y el reporte los etiqueta
+`weak` en vez de redondear para arriba. Con pocos videos cortos no alcanza para
+que un intervalo signifique algo. El estimador está validado contra efectos
+plantados en el fixture — el límite acá es la muestra, no el método. Decilo vos
+antes de que lo pregunten; queda mucho mejor que que te lo encuentren.
 
 ## Lo que falta y podés agregar si te sobra tiempo
 

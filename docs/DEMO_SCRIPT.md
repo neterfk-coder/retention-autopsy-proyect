@@ -6,6 +6,11 @@ output*, not a recording of it having run. This is built around that.
 Target: **3 minutes**. The rule throughout — never run anything slow on camera. Cache the
 slow parts, run the fast parts live.
 
+> **Read your own report before you rehearse this.** Every number below is written as a
+> placeholder in `[brackets]`. Fill them from your own `out/report.html` — the numbers in
+> the README come from the synthetic fixture, and reciting those while your real report is
+> on screen is the one mistake a judge is guaranteed to catch.
+
 ---
 
 ## Before you start
@@ -13,11 +18,19 @@ slow parts, run the fast parts live.
 Do this the day before, not an hour before.
 
 - [ ] `autopsy scan` completed against a real channel, `out/channel.json` cached
-- [ ] `autopsy edit` run on at least 3 videos, so real cuts and real transcripts are in the cache
+- [ ] `autopsy edit` run on as many videos as you can, so real cuts and transcripts are in
+      the cache. Videos you skip say so in the report rather than guessing — honest, but
+      dead air in a demo
+- [ ] `python -m autopsy report` run once, and **you have read the output**
+- [ ] Placeholders below filled in with what your report actually says
 - [ ] `python -m pytest tests/ -q` passes
 - [ ] YouTube Studio open in a browser tab, on the retention graph of one of those videos
 - [ ] Terminal font large enough to read on a projector
 - [ ] The synthetic demo works as a fallback if the network dies
+
+**Back up `out/channel.json` somewhere outside the repo.** It holds every `edit` run you
+have done — hours of ffmpeg and transcription. `make clean` and any `rm -rf out` will
+take it with them.
 
 ---
 
@@ -25,9 +38,9 @@ Do this the day before, not an hour before.
 
 Open on the browser tab, not the terminal.
 
-> This is my retention graph. There is a cliff at 4:12. YouTube has told me *when* people
-> left. It has never once told me *what I did* at that second — it knows nothing about
-> what is in the video.
+> This is my retention graph. There is a cliff at [TIMECODE]. YouTube has told me *when*
+> people left. It has never once told me *what I did* at that second — it knows nothing
+> about what is in the video.
 
 Ten seconds. Do not explain the architecture yet.
 
@@ -49,31 +62,47 @@ the worst moments as it goes.
 Open `out/report.html`. Scroll to the video that is already open in Studio.
 
 > Top line is the retention you just saw. The band underneath is the edit — dark means a
-> long shot held without cutting. Here is 4:12.
+> long shot held without cutting. Here is [TIMECODE].
 
 Point at the dark block sitting directly under the dip. **This is the moment the whole
 project is for.** Let it sit for a beat before you say anything else.
 
-> Fourteen seconds on one shot, delivery dropped to 1.2 words a second, and 8% of everyone
-> still watching left.
+Read the cause straight off the report for that cliff, e.g.:
+
+> [N] seconds on one shot, the mix dropped [N] LU, and [N]% of everyone still watching
+> left.
 
 ## 1:20 — The part nobody else has
 
 Scroll up to the patterns section.
 
-> That is one video. This is all of them pooled — about four thousand retention buckets.
-> On this channel specifically, shots held past fourteen seconds lose 2.15 times more of
-> the remaining audience. Confidence interval 2.02 to 2.27.
+> That is one video. This is all of them pooled — [N] retention buckets of body content.
+> On this channel, shots held past [N] seconds lose [N] times more of the remaining
+> audience.
 
-> That number does not exist in Studio, it does not exist in TubeBuddy or VidIQ, and it
+**If your patterns are still labelled `weak`** — which is what a small catalogue looks
+like, and what the report will say — do not hide it. Say it first, in your own words:
+
+> That interval is wide and it is not significant yet: [N] videos is not enough. The tool
+> says so on the card rather than printing a confident number built on nothing. That is
+> the point — it gets sharper with every video, and it refuses to bluff before then.
+
+Then earn the claim back on the method, not the sample:
+
+> What matters is that the estimator is measurable. It plants a known effect in fixture
+> data and recovers it, and it has a test that feeds it pure noise and asserts it invents
+> nothing.
+
+> This number does not exist in Studio, it does not exist in TubeBuddy or VidIQ, and it
 > cannot exist in any tool that has not seen both my analytics *and* my footage.
 
-## 1:50 — The money slide
+## 1:50 — The money slide *(only if your report has a sponsor section)*
 
-Scroll to sponsor economics.
+The sponsor section is omitted entirely when no reads are detected. **Check your report
+first — if it is not there, skip straight to 2:20 and give the extra time to the tests.**
 
 > Sponsor reads. Not what they paid — what they cost. Reads placed in the first 30% of the
-> video cost 2.5 times more audience than later ones, net of what a normal stretch of
+> video cost [N] times more audience than later ones, net of what a normal stretch of
 > video costs anyway.
 
 > That is a pricing decision. That is where the read goes in the next contract.
@@ -91,6 +120,10 @@ python -m pytest tests/ -q
 
 > Two real bugs came out of this. Quartile binning was reporting that 2.2x as 1.39x,
 > because the true threshold sat in the tail where the search could not reach.
+
+If you want a second example, the honest ones are good material: running it against a real
+channel for the first time turned up cause attribution that read confidently off data that
+had never been collected, and a scene detector that reported single frames as shots.
 
 Ten seconds on this. It separates you from every project that shows a chart and hopes.
 
@@ -129,9 +162,15 @@ you where to look, and you still have to watch the tape.
 gets the same segment every time, it works offline, and when it flags a read you can see
 exactly which phrases fired.
 
+**"Your p-values are not significant."** Correct, and the report labels them `weak` rather
+than rounding them up. Channel patterns need enough body-content buckets before an
+interval means anything; a handful of short videos does not get there. The estimator is
+validated against planted effects in the fixture — the sample is the limit here, not the
+method.
+
 **"What if I have five videos?"** Per-video findings work immediately. Channel patterns
-need around fifteen, and the report tells you that instead of showing a confident number
-built on nothing.
+need considerably more, and the report tells you that instead of showing a confident
+number built on nothing.
 
 **"Could this run on someone else's channel?"** No, and that is the point. Retention is
 owner-only data. It is also why this is defensible — no third-party tool can compute it.

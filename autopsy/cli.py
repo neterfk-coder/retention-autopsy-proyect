@@ -12,6 +12,7 @@ from __future__ import annotations
 import argparse
 import datetime as dt
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -345,6 +346,13 @@ def cmd_report(args: argparse.Namespace) -> int:
 
 
 def build_parser() -> argparse.ArgumentParser:
+    # Documented in .env.example. Reading them here is what makes that file
+    # true -- it described these three for a while before anything used them,
+    # so setting them and dropping --secrets failed with "required argument".
+    secrets = os.environ.get("AUTOPSY_CLIENT_SECRETS") or None
+    start_date = os.environ.get("AUTOPSY_START_DATE") or None
+    end_date = os.environ.get("AUTOPSY_END_DATE") or None
+
     parser = argparse.ArgumentParser(prog="autopsy", description=__doc__,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
@@ -362,15 +370,17 @@ def build_parser() -> argparse.ArgumentParser:
     demo.set_defaults(func=cmd_demo)
 
     auth = sub.add_parser("auth", help="one-time OAuth")
-    auth.add_argument("--secrets", required=True, help="client_secrets.json from Google Cloud")
+    auth.add_argument("--secrets", default=secrets, required=secrets is None,
+                      help="client_secrets.json from Google Cloud "
+                           "($AUTOPSY_CLIENT_SECRETS)")
     auth.set_defaults(func=cmd_auth)
 
     scan = sub.add_parser("scan", help="pull retention for your channel")
-    scan.add_argument("--secrets", required=True)
+    scan.add_argument("--secrets", default=secrets, required=secrets is None)
     scan.add_argument("--max-videos", type=int, default=40, dest="max_videos")
     scan.add_argument("--quota", type=int, default=10_000)
-    scan.add_argument("--start", default=None, help="YYYY-MM-DD")
-    scan.add_argument("--end", default=None, help="YYYY-MM-DD")
+    scan.add_argument("--start", default=start_date, help="YYYY-MM-DD ($AUTOPSY_START_DATE)")
+    scan.add_argument("--end", default=end_date, help="YYYY-MM-DD ($AUTOPSY_END_DATE)")
     scan.add_argument("--subtitles", default=None, help="dir of <video_id>.srt files")
     scan.add_argument("--cache", default=str(DEFAULT_CACHE))
     scan.set_defaults(func=cmd_scan)
