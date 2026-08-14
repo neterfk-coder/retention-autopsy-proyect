@@ -262,6 +262,16 @@ def cmd_edit(args: argparse.Namespace) -> int:
         print(f"{args.video_id} is not in {args.cache}", file=sys.stderr)
         return 1
 
+    if not Path(args.file).is_file():
+        # ffmpeg fails silently on a missing input from here on: probe_duration
+        # returns 0.0 (falls back to the retention-side duration), detect_cuts
+        # finds nothing to report as a cut, audio_series returns its flat
+        # placeholder series. Chained together, a typo'd path does not error --
+        # it produces a complete, plausible-looking "0 cuts, silent audio"
+        # result with no signal that the file was never actually read.
+        print(f"{args.file} does not exist", file=sys.stderr)
+        return 1
+
     video = index[args.video_id]
     duration = probe_duration(args.file) or video.meta.duration
     print(f"analysing {args.file} ({duration:.0f}s)")

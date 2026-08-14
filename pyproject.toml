@@ -17,7 +17,7 @@ youtube = [
   "google-auth-oauthlib>=1.1",
   "google-auth>=2.23",
 ]
-video = ["scenedetect[opencv]>=0.6.2"]
+video = ["scenedetect>=0.6.2"]
 whisper = ["faster-whisper>=1.0"]
 dev = ["pytest>=7.4"]
 
