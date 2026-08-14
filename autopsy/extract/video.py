@@ -21,6 +21,7 @@ import subprocess
 from pathlib import Path
 
 SCENE_THRESHOLD = 0.30
+MIN_SHOT_LENGTH = 0.4  # seconds; no editor cuts on a single frame boundary
 _TIME_RE = re.compile(r"pts_time:([0-9.]+)")
 
 
@@ -85,17 +86,41 @@ def detect_cuts_scenedetect(path: str | Path, threshold: float = 27.0) -> list[f
     return [scene[0].get_seconds() for scene in manager.get_scene_list()][1:]
 
 
-def detect_cuts(path: str | Path, prefer: str = "auto") -> list[float]:
+def _merge_close_cuts(cuts: list[float], min_gap: float = MIN_SHOT_LENGTH) -> list[float]:
+    """Collapse a burst of raw triggers into the one cut a human would call.
+
+    A whip pan, a flash frame or a fast zoom can push the scene score over
+    threshold several times within a fraction of a second -- on real footage
+    this shows up as dozens of "shots" 30-100ms apart, which corrupts every
+    feature derived from shot length downstream. Keeping the first trigger of
+    each cluster and dropping the rest is what turns the raw signal back into
+    actual shot boundaries.
+    """
+    if not cuts:
+        return []
+    kept = [cuts[0]]
+    for t in cuts[1:]:
+        if t - kept[-1] >= min_gap:
+            kept.append(t)
+    return kept
+
+
+def detect_cuts(
+    path: str | Path, prefer: str = "auto", min_shot_length: float = MIN_SHOT_LENGTH
+) -> list[float]:
+    cuts: list[float] | None = None
     if prefer in ("auto", "scenedetect"):
         try:
-            return detect_cuts_scenedetect(path)
+            cuts = detect_cuts_scenedetect(path)
         except ImportError:
             if prefer == "scenedetect":
                 raise
         except Exception:
             if prefer == "scenedetect":
                 raise
-    return detect_cuts_ffmpeg(path)
+    if cuts is None:
+        cuts = detect_cuts_ffmpeg(path)
+    return _merge_close_cuts(cuts, min_shot_length)
 
 
 def audio_series(
