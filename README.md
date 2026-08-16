@@ -318,7 +318,7 @@ Built for the Social Media Automation Hackathon.
 
 | Name | Built |
 | --- | --- |
-| **⟵ ARNOLD GIOVANNY WESCHE SANCHEZ  ** | *e.g. full pipeline: API client, analysis, report* |
+| **Arnold Giovanny Wesche Sanchez** | Full pipeline — API client, edit extraction, statistical analysis, and report generation | |
 
 ---
 
